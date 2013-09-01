@@ -340,8 +340,7 @@ int main(void)
             }
             break;
         case SDL_QUIT:
-            gameRunning = 0;
-            break;
+            goto quit;
         }
 
         player.rot %= 360;
