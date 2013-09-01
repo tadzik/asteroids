@@ -82,7 +82,7 @@ void split_asteroid(struct Asteroid *src, struct Asteroid *dst)
 void move_bullet(struct Bullet *b)
 {
     if (!b->alive) return;
-    if (b->age++ > 100) {
+    if (b->age++ > 50) {
         b->alive = 0;
     } else {
         b->x += cos(RAD(b->rot)) * b->vel;
@@ -176,20 +176,24 @@ int main(void)
     struct Spaceship player = { 400, 300, 40, 0, 0 };
     struct Bullet bullets[BULLET_COUNT];
     struct Asteroid asteroids[ASTEROID_COUNT];
-    int bullet_iter = 0;
-    int asteroid_iter = 0;
     for (int i = 0; i < BULLET_COUNT; i++) {
         bullets[i].alive = 0;
     }
-    for (int i = 0; i < ASTEROID_COUNT; i++) {
+    int bullet_iter = 0;
+    for (int i = 0; i < 4; i++) {
+        asteroids[i].alive = 1;
+        asteroids[i].size = 80;
+        asteroids[i].vel = 5;
+        asteroids[i].rot = rand() % 360;
+        do {
+            asteroids[i].x = rand() % WIDTH;
+            asteroids[i].y = rand() % HEIGHT;
+        } while (col_spaceship_asteroid(&player, &asteroids[i]));
+    }
+    for (int i = 4; i < ASTEROID_COUNT; i++) {
         asteroids[i].alive = 0;
     }
-    asteroids[0].alive = 1;
-    asteroids[0].x = 600;
-    asteroids[0].y = 600;
-    asteroids[0].vel = 5;
-    asteroids[0].rot = 35;
-    asteroids[0].size = 80;
+    int asteroid_iter = 4;
 
     SDL_AddTimer(16, (SDL_NewTimerCallback)timer_cb, NULL);
 
