@@ -194,7 +194,7 @@ int main(void)
     SDL_AddTimer(16, (SDL_NewTimerCallback)timer_cb, NULL);
 
     while (gameRunning) {
-        if (SDL_PollEvent(&event)) {
+        if (SDL_WaitEvent(&event)) {
             switch (event.type) {
             case SDL_USEREVENT: // timer
                 if (keyboard_state & GO_UP) {
