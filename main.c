@@ -1,9 +1,12 @@
 #include <SDL.h>
 #include <SDL_gfxPrimitives.h>
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
 #define WIDTH 1600
 #define HEIGHT 900
 #define BULLET_COUNT 32
+#define ASTEROID_COUNT 32
 
 #define BAILOUT_IF(x) { if (x) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; } }
 #define RAD(x) ((x)*M_PI/180)
@@ -24,8 +27,53 @@ struct Bullet {
     int age;
 };
 
+struct Asteroid {
+    double x;
+    double y;
+    int vel;
+    int rot;
+    int size;
+};
+
+void draw_asteroid(struct Asteroid *a, struct SDL_Surface *s)
+{
+    if (a->x == -1) return;
+    ellipseRGBA(s, a->x, a->y, a->size, a->size, 255, 255, 255, 255);
+}
+
+void move_asteroid(struct Asteroid *a)
+{
+    if (a->x == -1) return;
+    a->x += cos(RAD(a->rot)) * (double)a->vel;
+    a->y += sin(RAD(a->rot)) * (double)a->vel;
+    if (a->x > WIDTH) a->x -= WIDTH;
+    if (a->y > HEIGHT) a->y -= HEIGHT;
+    if (a->x < 0) a->x += WIDTH;
+    if (a->y < 0) a->y += HEIGHT;
+}
+
+void split_asteroid(struct Asteroid *src, struct Asteroid *dst)
+{
+    src->size /= 2;
+    if (src->size < 20) {
+        src->x = -1;
+        return;
+    }
+    dst->size = src->size;
+    dst->x = src->x;
+    dst->y = src->y;
+    dst->vel = src->vel;
+    printf("Old rotation: %d\n", src->rot);
+    int diff = rand() % 50 + 10;
+    dst->rot = src->rot - diff;
+    printf("Dst rotation: %d\n", dst->rot);
+    src->rot += diff;
+    printf("New rotation: %d\n", src->rot);
+}
+
 void move_bullet(struct Bullet *b)
 {
+    if (b->x == -1) return;
     if (b->age++ > 100) {
         b->x = -1;
         b->y = -1;
@@ -88,6 +136,7 @@ int timer_cb(int interval, void *p)
 int main(void)
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+    srand(time(0));
 
     SDL_Surface* screen = SDL_SetVideoMode(WIDTH, HEIGHT, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
     SDL_WM_SetCaption("Asteroids", 0);
@@ -98,12 +147,22 @@ int main(void)
 
     struct Spaceship player = { 400, 300, 40, 0, 0 };
     struct Bullet bullets[BULLET_COUNT];
+    struct Asteroid asteroids[ASTEROID_COUNT];
     int bullet_iter = 0;
+    int asteroid_iter = 0;
     for (int i = 0; i < BULLET_COUNT; i++) {
         bullets[i].x = -1;
         bullets[i].y = -1;
         bullets[i].vel = 0;
     }
+    for (int i = 0; i < ASTEROID_COUNT; i++) {
+        asteroids[i].x = -1;
+    }
+    asteroids[0].x = 600;
+    asteroids[0].y = 600;
+    asteroids[0].vel = 5;
+    asteroids[0].rot = 35;
+    asteroids[0].size = 80;
 
     SDL_AddTimer(16, (SDL_NewTimerCallback)timer_cb, NULL);
 
@@ -112,7 +171,25 @@ int main(void)
             switch (event.type) {
             case SDL_USEREVENT:
                 for (int i = 0; i < BULLET_COUNT; i++) {
-                    move_bullet(bullets + i);
+                    move_bullet(&bullets[i]);
+                    if (bullets[i].x == -1) continue;
+                    for (int j = 0; j < ASTEROID_COUNT; j++) {
+                        if (asteroids[j].x == -1) continue;
+                        int dist = (int)sqrt(
+                            pow(bullets[i].x - asteroids[j].x, 2)
+                            + pow(bullets[i].y - asteroids[j].y, 2)
+                        );
+                        if (dist < asteroids[j].size) {
+                            asteroid_iter++;
+                            asteroid_iter %= ASTEROID_COUNT;
+                            split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
+                            bullets[i].x = -1;
+                            continue;
+                        }
+                    }
+                }
+                for (int i = 0; i < ASTEROID_COUNT; i++) {
+                    move_asteroid(asteroids + i);
                 }
                 move_spaceship(&player);
                 break;
@@ -143,7 +220,11 @@ int main(void)
 
         draw_spaceship(&player, screen);
         for (int i = 0; i < BULLET_COUNT; i++) {
+            if (bullets[i].x == -1) continue;
             filledEllipseRGBA(screen, bullets[i].x, bullets[i].y, 2, 2, 255, 255, 255, 255);
+        }
+        for (int i = 0; i < ASTEROID_COUNT; i++) {
+            draw_asteroid(&asteroids[i], screen);
         }
 
         SDL_Flip(screen);
