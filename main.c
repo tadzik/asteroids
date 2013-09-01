@@ -175,8 +175,12 @@ int timer_cb(int interval)
     return interval;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    int sound = 1;
+    if (argc > 1 && strcmp(argv[1], "--nosound") == 0) {
+        sound = 0;
+    }
     if (TTF_Init() == -1) {
         fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
         return 1;
@@ -283,7 +287,7 @@ int main(void)
                         asteroid_iter %= ASTEROID_COUNT;
                         split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
                         bullets[i].alive = 0;
-                        Mix_PlayChannel(-1, trach, 0);
+                        if (sound) Mix_PlayChannel(-1, trach, 0);
                         continue;
                     }
                 }
@@ -292,6 +296,7 @@ int main(void)
             for (int i = 0; i < ASTEROID_COUNT; i++) {
                 move_asteroid(&asteroids[i]);
                 if (col_spaceship_asteroid(&player, &asteroids[i])) {
+                    if (sound) Mix_PlayChannel(-1, trach, 0);
                     gameRunning = 0;
                 }
             }
@@ -319,7 +324,7 @@ int main(void)
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
                 fire_bullet(&player, &bullets[bullet_iter++]);
-                Mix_PlayChannel(-1, bum, 0);
+                if (sound) Mix_PlayChannel(-1, bum, 0);
                 bullet_iter %= BULLET_COUNT;
                 break;
             case SDLK_LEFT:

@@ -4,6 +4,7 @@ Dependencies:
 
 Compiling and running:
     make, then ./main. Duh.
+    Run with --nosound for no sound (I know you want it. Or eventually you will).
 
 Playing:
     Arrow keys to move around, space to fire. Close window to stop playing.
