@@ -194,90 +194,90 @@ int main(void)
     SDL_AddTimer(16, (SDL_NewTimerCallback)timer_cb, NULL);
 
     while (gameRunning) {
-        if (SDL_WaitEvent(&event)) {
-            switch (event.type) {
-            case SDL_USEREVENT: // timer
-                if (keyboard_state & GO_UP) {
-                    if (player.vel < 10) player.vel++;
-                }
-                if (keyboard_state & GO_DOWN) {
-                    if (player.vel > -10) player.vel--;
-                }
-                if (keyboard_state & GO_LEFT) {
-                    player.rot -= 10;
-                }
-                if (keyboard_state & GO_RIGHT) {
-                    player.rot += 10;
-                }
-                for (int i = 0; i < BULLET_COUNT; i++) {
-                    move_bullet(&bullets[i]);
-                    if (bullets[i].x == -1) continue;
-                    for (int j = 0; j < ASTEROID_COUNT; j++) {
-                        if (asteroids[j].x == -1) continue;
-                        if (point_in_asteroid(bullets[i].x, bullets[i].y, &asteroids[j])) {
-                            asteroid_iter++;
-                            asteroid_iter %= ASTEROID_COUNT;
-                            split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
-                            bullets[i].x = -1;
-                            continue;
-                        }
+        BAILOUT_IF(SDL_WaitEvent(&event) == 0);
+        switch (event.type) {
+        case SDL_USEREVENT: // timer
+            if (keyboard_state & GO_UP) {
+                if (player.vel < 10) player.vel++;
+            }
+            if (keyboard_state & GO_DOWN) {
+                if (player.vel > -10) player.vel--;
+            }
+            if (keyboard_state & GO_LEFT) {
+                player.rot -= 10;
+            }
+            if (keyboard_state & GO_RIGHT) {
+                player.rot += 10;
+            }
+            for (int i = 0; i < BULLET_COUNT; i++) {
+                move_bullet(&bullets[i]);
+                if (bullets[i].x == -1) continue;
+                for (int j = 0; j < ASTEROID_COUNT; j++) {
+                    if (asteroids[j].x == -1) continue;
+                    if (point_in_asteroid(bullets[i].x, bullets[i].y, &asteroids[j])) {
+                        asteroid_iter++;
+                        asteroid_iter %= ASTEROID_COUNT;
+                        split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
+                        bullets[i].x = -1;
+                        continue;
                     }
                 }
-                move_spaceship(&player);
-                for (int i = 0; i < ASTEROID_COUNT; i++) {
-                    move_asteroid(asteroids + i);
-                    if (col_spaceship_asteroid(&player, &asteroids[i])) {
-                        gameRunning = 0;
-                    }
+            }
+            move_spaceship(&player);
+            for (int i = 0; i < ASTEROID_COUNT; i++) {
+                move_asteroid(asteroids + i);
+                if (col_spaceship_asteroid(&player, &asteroids[i])) {
+                    gameRunning = 0;
                 }
+            }
+            break;
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+            case SDLK_LEFT:
+                keyboard_state |= GO_LEFT;
                 break;
-            case SDL_KEYDOWN:
-                switch (event.key.keysym.sym) {
-                case SDLK_LEFT:
-                    keyboard_state |= GO_LEFT;
-                    break;
-                case SDLK_RIGHT:
-                    keyboard_state |= GO_RIGHT;
-                    break;
-                case SDLK_UP:
-                    keyboard_state |= GO_UP;
-                    break;
-                case SDLK_DOWN:
-                    keyboard_state |= GO_DOWN;
-                    break;
-                default:
-                    /* nothing. Fuck off, clang */
-                    break;
-                }
+            case SDLK_RIGHT:
+                keyboard_state |= GO_RIGHT;
                 break;
-            case SDL_KEYUP:
-                switch (event.key.keysym.sym) {
-                case SDLK_SPACE:
-                    fire_bullet(&player, bullets + bullet_iter++);
-                    bullet_iter %= BULLET_COUNT;
-                    break;
-                case SDLK_LEFT:
-                    keyboard_state &= ~GO_LEFT;
-                    break;
-                case SDLK_RIGHT:
-                    keyboard_state &= ~GO_RIGHT;
-                    break;
-                case SDLK_UP:
-                    keyboard_state &= ~GO_UP;
-                    break;
-                case SDLK_DOWN:
-                    keyboard_state &= ~GO_DOWN;
-                    break;
-                default:
-                    /* nothing. Fuck off, clang */
-                    break;
-                }
+            case SDLK_UP:
+                keyboard_state |= GO_UP;
                 break;
-            case SDL_QUIT:
-                gameRunning = 0;
+            case SDLK_DOWN:
+                keyboard_state |= GO_DOWN;
+                break;
+            default:
+                /* nothing. Fuck off, clang */
                 break;
             }
+            break;
+        case SDL_KEYUP:
+            switch (event.key.keysym.sym) {
+            case SDLK_SPACE:
+                fire_bullet(&player, bullets + bullet_iter++);
+                bullet_iter %= BULLET_COUNT;
+                break;
+            case SDLK_LEFT:
+                keyboard_state &= ~GO_LEFT;
+                break;
+            case SDLK_RIGHT:
+                keyboard_state &= ~GO_RIGHT;
+                break;
+            case SDLK_UP:
+                keyboard_state &= ~GO_UP;
+                break;
+            case SDLK_DOWN:
+                keyboard_state &= ~GO_DOWN;
+                break;
+            default:
+                /* nothing. Fuck off, clang */
+                break;
+            }
+            break;
+        case SDL_QUIT:
+            gameRunning = 0;
+            break;
         }
+
         player.rot %= 360;
 
         SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
