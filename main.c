@@ -109,19 +109,40 @@ void fire_bullet(struct Spaceship *s, struct Bullet *b)
     b->age = 0;
 }
 
+int point_in_asteroid(int x, int y, struct Asteroid *a)
+{
+    return sqrt(pow(x - a->x, 2) + pow(y - a->y, 2)) < a->size;
+}
+
+void ship_vertices(struct Spaceship *ship, int *x1, int *y1,
+                   int *x2, int *y2, int *x3, int *y3)
+{
+    *x1 = cos(RAD(ship->rot))       * ship->size;
+    *y1 = sin(RAD(ship->rot))       * ship->size;
+    *x2 = cos(RAD(ship->rot + 120 % 360)) * ship->size / 2;
+    *y2 = sin(RAD(ship->rot + 120 % 360)) * ship->size / 2;
+    *x3 = cos(RAD(ship->rot + 240 % 360)) * ship->size / 2;
+    *y3 = sin(RAD(ship->rot + 240 % 360)) * ship->size / 2;
+}
+
 void draw_spaceship(struct Spaceship *ship, SDL_Surface *surf)
 {
     int x1, x2, x3, y1, y2, y3;
-    x1 = cos(RAD(ship->rot))       * ship->size;
-    y1 = sin(RAD(ship->rot))       * ship->size;
-    x2 = cos(RAD(ship->rot + 120 % 360)) * ship->size / 2;
-    y2 = sin(RAD(ship->rot + 120 % 360)) * ship->size / 2;
-    x3 = cos(RAD(ship->rot + 240 % 360)) * ship->size / 2;
-    y3 = sin(RAD(ship->rot + 240 % 360)) * ship->size / 2;
+    ship_vertices(ship, &x1, &y1, &x2, &y2, &x3, &y3);
     trigonRGBA(surf, ship->x + x1, ship->y + y1,
                      ship->x + x2, ship->y + y2,
                      ship->x + x3, ship->y + y3,
                      255, 255, 255, 255);
+}
+
+int col_spaceship_asteroid(struct Spaceship *ship, struct Asteroid *a)
+{
+    int x1, x2, x3, y1, y2, y3;
+    if (a->x == -1) return 0;
+    ship_vertices(ship, &x1, &y1, &x2, &y2, &x3, &y3);
+    return point_in_asteroid(ship->x + x1, ship->y + y1, a)
+        || point_in_asteroid(ship->x + x2, ship->y + y2, a)
+        || point_in_asteroid(ship->x + x3, ship->y + y3, a);
 }
 
 int timer_cb(int interval, void *p)
@@ -169,17 +190,13 @@ int main(void)
     while (gameRunning) {
         if (SDL_PollEvent(&event)) {
             switch (event.type) {
-            case SDL_USEREVENT:
+            case SDL_USEREVENT: // timer
                 for (int i = 0; i < BULLET_COUNT; i++) {
                     move_bullet(&bullets[i]);
                     if (bullets[i].x == -1) continue;
                     for (int j = 0; j < ASTEROID_COUNT; j++) {
                         if (asteroids[j].x == -1) continue;
-                        int dist = (int)sqrt(
-                            pow(bullets[i].x - asteroids[j].x, 2)
-                            + pow(bullets[i].y - asteroids[j].y, 2)
-                        );
-                        if (dist < asteroids[j].size) {
+                        if (point_in_asteroid(bullets[i].x, bullets[i].y, &asteroids[j])) {
                             asteroid_iter++;
                             asteroid_iter %= ASTEROID_COUNT;
                             split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
@@ -188,10 +205,13 @@ int main(void)
                         }
                     }
                 }
+                move_spaceship(&player);
                 for (int i = 0; i < ASTEROID_COUNT; i++) {
                     move_asteroid(asteroids + i);
+                    if (col_spaceship_asteroid(&player, &asteroids[i])) {
+                        gameRunning = 0;
+                    }
                 }
-                move_spaceship(&player);
                 break;
             case SDL_KEYDOWN:
                 if (event.key.keysym.sym == SDLK_LEFT)
