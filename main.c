@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_gfxPrimitives.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
@@ -176,7 +177,7 @@ int timer_cb(int interval)
 
 int main(void)
 {
-    if(TTF_Init() == -1) {
+    if (TTF_Init() == -1) {
         fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
         return 1;
     }
@@ -193,6 +194,19 @@ int main(void)
     SDL_Surface* screen = SDL_SetVideoMode(WIDTH, HEIGHT, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
     SDL_WM_SetCaption("Asteroids", 0);
     SDL_EnableKeyRepeat(1, SDL_DEFAULT_REPEAT_INTERVAL);
+
+    Mix_Init(0);
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == -1) {
+        fprintf(stderr, "Mix_OpenAudio: %s\n", Mix_GetError());
+        return 1;
+    }
+    Mix_Chunk *bum = Mix_LoadWAV("bum.wav");
+    Mix_Chunk *trach = Mix_LoadWAV("trach.wav");
+
+    if (!bum || !trach) {
+        fprintf(stderr, "Mix_LoadWAV: %s\n", Mix_GetError());
+        return 1;
+    }
 
     SDL_Event event;
     int gameRunning = 0;
@@ -269,6 +283,7 @@ int main(void)
                         asteroid_iter %= ASTEROID_COUNT;
                         split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
                         bullets[i].alive = 0;
+                        Mix_PlayChannel(-1, trach, 0);
                         continue;
                     }
                 }
@@ -304,6 +319,7 @@ int main(void)
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
                 fire_bullet(&player, &bullets[bullet_iter++]);
+                Mix_PlayChannel(-1, bum, 0);
                 bullet_iter %= BULLET_COUNT;
                 break;
             case SDLK_LEFT:
@@ -369,6 +385,10 @@ int main(void)
 
 quit:
     TTF_CloseFont(font);
+    Mix_FreeChunk(bum);
+    Mix_FreeChunk(trach);
+    Mix_CloseAudio();
+    Mix_Quit();
     SDL_FreeSurface(text);
     SDL_FreeSurface(screen);
     SDL_Quit();
