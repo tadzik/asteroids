@@ -152,13 +152,12 @@ int col_spaceship_asteroid(struct Spaceship *ship, struct Asteroid *a)
         || point_in_asteroid(ship->x + x3, ship->y + y3, a);
 }
 
-int timer_cb(int interval, void *p)
+int timer_cb(int interval)
 {
     SDL_Event event;
     event.type = SDL_USEREVENT;
     SDL_PushEvent(&event);
     return interval;
-    (void)p;
 }
 
 int main(void)
