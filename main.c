@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <SDL_gfxPrimitives.h>
+#include <SDL_ttf.h>
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
@@ -7,6 +8,7 @@
 #define HEIGHT 900
 #define BULLET_COUNT 32
 #define ASTEROID_COUNT 32
+#define DIFFICULTY 4
 
 #define GO_UP    1
 #define GO_DOWN  2
@@ -71,12 +73,9 @@ void split_asteroid(struct Asteroid *src, struct Asteroid *dst)
     dst->x = src->x;
     dst->y = src->y;
     dst->vel = src->vel;
-    printf("Old rotation: %d\n", src->rot);
     int diff = rand() % 50 + 10;
     dst->rot = src->rot - diff;
-    printf("Dst rotation: %d\n", dst->rot);
     src->rot += diff;
-    printf("New rotation: %d\n", src->rot);
 }
 
 void move_bullet(struct Bullet *b)
@@ -152,6 +151,21 @@ int col_spaceship_asteroid(struct Spaceship *ship, struct Asteroid *a)
         || point_in_asteroid(ship->x + x3, ship->y + y3, a);
 }
 
+void draw_screen(SDL_Surface *screen, struct Spaceship *player,
+                 struct Bullet bullets[], struct Asteroid asteroids[])
+{
+    SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
+
+    draw_spaceship(player, screen);
+    for (int i = 0; i < BULLET_COUNT; i++) {
+        if (!bullets[i].alive) continue;
+        filledEllipseRGBA(screen, bullets[i].x, bullets[i].y, 2, 2, 255, 255, 255, 255);
+    }
+    for (int i = 0; i < ASTEROID_COUNT; i++) {
+        draw_asteroid(&asteroids[i], screen);
+    }
+}
+
 int timer_cb(int interval)
 {
     SDL_Event event;
@@ -162,6 +176,17 @@ int timer_cb(int interval)
 
 int main(void)
 {
+    if(TTF_Init() == -1) {
+        fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
+        return 1;
+    }
+
+    TTF_Font *font = TTF_OpenFont("font.ttf", 24);
+    if (!font) {
+        fprintf(stderr, "TTF_OpentFont: %s\n", TTF_GetError());
+        return 1;
+    }
+
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
     srand(time(0));
 
@@ -170,8 +195,9 @@ int main(void)
     SDL_EnableKeyRepeat(1, SDL_DEFAULT_REPEAT_INTERVAL);
 
     SDL_Event event;
-    int gameRunning = 1;
+    int gameRunning = 0;
     int keyboard_state = 0;
+    int won = 0;
 
     struct Spaceship player = { 400, 300, 40, 0, 0 };
     struct Bullet bullets[BULLET_COUNT];
@@ -180,7 +206,7 @@ int main(void)
         bullets[i].alive = 0;
     }
     int bullet_iter = 0;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < DIFFICULTY; i++) {
         asteroids[i].alive = 1;
         asteroids[i].size = 80;
         asteroids[i].vel = 5;
@@ -190,13 +216,33 @@ int main(void)
             asteroids[i].y = rand() % HEIGHT;
         } while (col_spaceship_asteroid(&player, &asteroids[i]));
     }
-    for (int i = 4; i < ASTEROID_COUNT; i++) {
+    for (int i = DIFFICULTY; i < ASTEROID_COUNT; i++) {
         asteroids[i].alive = 0;
     }
-    int asteroid_iter = 4;
+    int asteroid_iter = DIFFICULTY;
 
     SDL_AddTimer(16, (SDL_NewTimerCallback)timer_cb, NULL);
 
+    SDL_Color white = { 255, 255, 255, 255};
+    SDL_Surface *text = TTF_RenderText_Solid(font, "Press space to start", white);
+    if (!text) {
+        fprintf(stderr, "TTF_RenderText_Solid: %s\n", TTF_GetError());
+        goto quit;
+    }
+    SDL_Rect textrect = { screen->w / 2 - text->w / 2, screen->h / 2 - text->h / 2,
+                          screen->w, screen->h };
+    while (!gameRunning) {
+        draw_screen(screen, &player, bullets, asteroids);
+        SDL_BlitSurface(text, NULL, screen, &textrect);
+        BAILOUT_IF(SDL_WaitEvent(&event) == 0);
+        if (event.type == SDL_KEYUP && event.key.keysym.sym == SDLK_SPACE) {
+            gameRunning = 1;
+        }
+        if (event.type == SDL_QUIT) {
+            goto quit;
+        }
+        SDL_Flip(screen);
+    }
     while (gameRunning) {
         BAILOUT_IF(SDL_WaitEvent(&event) == 0);
         switch (event.type) {
@@ -284,20 +330,47 @@ int main(void)
 
         player.rot %= 360;
 
-        SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
-
-        draw_spaceship(&player, screen);
-        for (int i = 0; i < BULLET_COUNT; i++) {
-            if (!bullets[i].alive) continue;
-            filledEllipseRGBA(screen, bullets[i].x, bullets[i].y, 2, 2, 255, 255, 255, 255);
+        int i;
+        for (i = 0; i < ASTEROID_COUNT; i++) {
+            if (asteroids[i].alive) {
+                break;
+            }
         }
-        for (int i = 0; i < ASTEROID_COUNT; i++) {
-            draw_asteroid(&asteroids[i], screen);
+        if (i == ASTEROID_COUNT) {
+            won = 1;
+            gameRunning = 0;
         }
+        draw_screen(screen, &player, bullets, asteroids);
 
         SDL_Flip(screen);
     }
 
+    SDL_FreeSurface(text);
+    if (won) {
+        text = TTF_RenderText_Solid(font, "You won. You'll make your mom proud", white);
+    } else {
+        text = TTF_RenderText_Solid(font, "You crashed, lol", white);
+    }
+    if (!text) {
+        fprintf(stderr, "TTF_RenderText_Solid: %s\n", TTF_GetError());
+        goto quit;
+    }
+    textrect.x = screen->w / 2 - text->w / 2;
+    textrect.y = screen->h / 2 - text->h / 2;
+    for (;;) {
+        draw_screen(screen, &player, bullets, asteroids);
+        BAILOUT_IF(SDL_BlitSurface(text, NULL, screen, &textrect));
+        BAILOUT_IF(SDL_WaitEvent(&event) == 0);
+        if (event.type == SDL_QUIT) {
+            break;
+        }
+        SDL_Flip(screen);
+    }
+
+quit:
+    TTF_CloseFont(font);
+    SDL_FreeSurface(text);
+    SDL_FreeSurface(screen);
     SDL_Quit();
 
     return 0;
