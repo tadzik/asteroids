@@ -25,6 +25,7 @@ struct Spaceship {
 };
 
 struct Bullet {
+    int alive;
     int x;
     int y;
     int vel;
@@ -33,6 +34,7 @@ struct Bullet {
 };
 
 struct Asteroid {
+    int alive;
     double x;
     double y;
     int vel;
@@ -42,13 +44,13 @@ struct Asteroid {
 
 void draw_asteroid(struct Asteroid *a, struct SDL_Surface *s)
 {
-    if (a->x == -1) return;
+    if (!a->alive) return;
     ellipseRGBA(s, a->x, a->y, a->size, a->size, 255, 255, 255, 255);
 }
 
 void move_asteroid(struct Asteroid *a)
 {
-    if (a->x == -1) return;
+    if (!a->alive) return;
     a->x += cos(RAD(a->rot)) * (double)a->vel;
     a->y += sin(RAD(a->rot)) * (double)a->vel;
     if (a->x > WIDTH) a->x -= WIDTH;
@@ -61,9 +63,10 @@ void split_asteroid(struct Asteroid *src, struct Asteroid *dst)
 {
     src->size /= 2;
     if (src->size < 20) {
-        src->x = -1;
+        src->alive = 0;
         return;
     }
+    dst->alive = 1;
     dst->size = src->size;
     dst->x = src->x;
     dst->y = src->y;
@@ -78,11 +81,9 @@ void split_asteroid(struct Asteroid *src, struct Asteroid *dst)
 
 void move_bullet(struct Bullet *b)
 {
-    if (b->x == -1) return;
+    if (!b->alive) return;
     if (b->age++ > 100) {
-        b->x = -1;
-        b->y = -1;
-        b->vel = 0;
+        b->alive = 0;
     } else {
         b->x += cos(RAD(b->rot)) * b->vel;
         b->y += sin(RAD(b->rot)) * b->vel;
@@ -107,6 +108,7 @@ void move_spaceship(struct Spaceship *s)
 
 void fire_bullet(struct Spaceship *s, struct Bullet *b)
 {
+    b->alive = 1;
     b->x = s->x + cos(RAD(s->rot)) * s->size;
     b->y = s->y + sin(RAD(s->rot)) * s->size;
     b->vel = s->vel + 10;
@@ -143,7 +145,7 @@ void draw_spaceship(struct Spaceship *ship, SDL_Surface *surf)
 int col_spaceship_asteroid(struct Spaceship *ship, struct Asteroid *a)
 {
     int x1, x2, x3, y1, y2, y3;
-    if (a->x == -1) return 0;
+    if (!a->alive) return 0;
     ship_vertices(ship, &x1, &y1, &x2, &y2, &x3, &y3);
     return point_in_asteroid(ship->x + x1, ship->y + y1, a)
         || point_in_asteroid(ship->x + x2, ship->y + y2, a)
@@ -178,13 +180,12 @@ int main(void)
     int bullet_iter = 0;
     int asteroid_iter = 0;
     for (int i = 0; i < BULLET_COUNT; i++) {
-        bullets[i].x = -1;
-        bullets[i].y = -1;
-        bullets[i].vel = 0;
+        bullets[i].alive = 0;
     }
     for (int i = 0; i < ASTEROID_COUNT; i++) {
-        asteroids[i].x = -1;
+        asteroids[i].alive = 0;
     }
+    asteroids[0].alive = 1;
     asteroids[0].x = 600;
     asteroids[0].y = 600;
     asteroids[0].vel = 5;
@@ -211,14 +212,14 @@ int main(void)
             }
             for (int i = 0; i < BULLET_COUNT; i++) {
                 move_bullet(&bullets[i]);
-                if (bullets[i].x == -1) continue;
+                if (!bullets[i].alive) continue;
                 for (int j = 0; j < ASTEROID_COUNT; j++) {
-                    if (asteroids[j].x == -1) continue;
+                    if (!asteroids[j].alive) continue;
                     if (point_in_asteroid(bullets[i].x, bullets[i].y, &asteroids[j])) {
                         asteroid_iter++;
                         asteroid_iter %= ASTEROID_COUNT;
                         split_asteroid(&asteroids[j], &asteroids[asteroid_iter]);
-                        bullets[i].x = -1;
+                        bullets[i].alive = 0;
                         continue;
                     }
                 }
@@ -253,7 +254,7 @@ int main(void)
         case SDL_KEYUP:
             switch (event.key.keysym.sym) {
             case SDLK_SPACE:
-                fire_bullet(&player, bullets + bullet_iter++);
+                fire_bullet(&player, &bullets[bullet_iter++]);
                 bullet_iter %= BULLET_COUNT;
                 break;
             case SDLK_LEFT:
@@ -284,7 +285,7 @@ int main(void)
 
         draw_spaceship(&player, screen);
         for (int i = 0; i < BULLET_COUNT; i++) {
-            if (bullets[i].x == -1) continue;
+            if (!bullets[i].alive) continue;
             filledEllipseRGBA(screen, bullets[i].x, bullets[i].y, 2, 2, 255, 255, 255, 255);
         }
         for (int i = 0; i < ASTEROID_COUNT; i++) {
