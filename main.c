@@ -225,7 +225,7 @@ int main(void)
             }
             move_spaceship(&player);
             for (int i = 0; i < ASTEROID_COUNT; i++) {
-                move_asteroid(asteroids + i);
+                move_asteroid(&asteroids[i]);
                 if (col_spaceship_asteroid(&player, &asteroids[i])) {
                     gameRunning = 0;
                 }
