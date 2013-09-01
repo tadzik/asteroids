@@ -8,6 +8,11 @@
 #define BULLET_COUNT 32
 #define ASTEROID_COUNT 32
 
+#define GO_UP    1
+#define GO_DOWN  2
+#define GO_LEFT  4
+#define GO_RIGHT 8
+
 #define BAILOUT_IF(x) { if (x) { fprintf(stderr, "%s\n", SDL_GetError()); return 1; } }
 #define RAD(x) ((x)*M_PI/180)
 
@@ -165,6 +170,7 @@ int main(void)
 
     SDL_Event event;
     int gameRunning = 1;
+    int keyboard_state = 0;
 
     struct Spaceship player = { 400, 300, 40, 0, 0 };
     struct Bullet bullets[BULLET_COUNT];
@@ -191,6 +197,18 @@ int main(void)
         if (SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_USEREVENT: // timer
+                if (keyboard_state & GO_UP) {
+                    if (player.vel < 10) player.vel++;
+                }
+                if (keyboard_state & GO_DOWN) {
+                    if (player.vel > -10) player.vel--;
+                }
+                if (keyboard_state & GO_LEFT) {
+                    player.rot -= 10;
+                }
+                if (keyboard_state & GO_RIGHT) {
+                    player.rot += 10;
+                }
                 for (int i = 0; i < BULLET_COUNT; i++) {
                     move_bullet(&bullets[i]);
                     if (bullets[i].x == -1) continue;
@@ -214,19 +232,45 @@ int main(void)
                 }
                 break;
             case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_LEFT)
-                    player.rot -= 10;
-                if (event.key.keysym.sym == SDLK_RIGHT)
-                    player.rot += 10;
-                if (event.key.keysym.sym == SDLK_UP)
-                    if (player.vel < 10) player.vel++;
-                if (event.key.keysym.sym == SDLK_DOWN)
-                    if (player.vel > -10) player.vel--;
+                switch (event.key.keysym.sym) {
+                case SDLK_LEFT:
+                    keyboard_state |= GO_LEFT;
+                    break;
+                case SDLK_RIGHT:
+                    keyboard_state |= GO_RIGHT;
+                    break;
+                case SDLK_UP:
+                    keyboard_state |= GO_UP;
+                    break;
+                case SDLK_DOWN:
+                    keyboard_state |= GO_DOWN;
+                    break;
+                default:
+                    /* nothing. Fuck off, clang */
+                    break;
+                }
                 break;
             case SDL_KEYUP:
-                if (event.key.keysym.sym == SDLK_SPACE) {
+                switch (event.key.keysym.sym) {
+                case SDLK_SPACE:
                     fire_bullet(&player, bullets + bullet_iter++);
                     bullet_iter %= BULLET_COUNT;
+                    break;
+                case SDLK_LEFT:
+                    keyboard_state &= ~GO_LEFT;
+                    break;
+                case SDLK_RIGHT:
+                    keyboard_state &= ~GO_RIGHT;
+                    break;
+                case SDLK_UP:
+                    keyboard_state &= ~GO_UP;
+                    break;
+                case SDLK_DOWN:
+                    keyboard_state &= ~GO_DOWN;
+                    break;
+                default:
+                    /* nothing. Fuck off, clang */
+                    break;
                 }
                 break;
             case SDL_QUIT:
